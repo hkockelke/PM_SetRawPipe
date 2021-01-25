@@ -1,10 +1,10 @@
-' ----------------------------------------
+' ---------------------------------------------------------
 '  Copyright Putzmeister Holding 2020
 '  prototype for internal usage only
 '  November 27, 2020
-'  set raw part of tube
+'  set raw part of tube (create as component also handled)
 '  Example Item 193590
-' ----------------------------------------
+' --------------------------------------------------------
 Option Strict Off
 Imports System
 Imports System.Globalization
