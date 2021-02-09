@@ -23,7 +23,6 @@ Module PM_Module_RawTubes
         Dim b_debug As Boolean = False
 
         Dim theSession As Session = Session.GetSession()
-
         Dim theUfSession As UFSession = UFSession.GetUFSession()
         Dim theUISession As UI = UI.GetUI
         Dim lw As ListingWindow = theSession.ListingWindow
@@ -103,13 +102,13 @@ Module PM_Module_RawTubes
                     stockFeature = theFeature
                     nbStockFeature = nbStockFeature + 1
 
-                    If theFeature.HasUserAttribute("ID", NXObject.AttributeType.String, -1) Then
-                        attributeInfo = theFeature.GetUserAttribute("ID", NXObject.AttributeType.String, -1)
+                    If theFeature.HasUserAttribute("InnerDiameter", NXObject.AttributeType.String, -1) Then
+                        attributeInfo = theFeature.GetUserAttribute("InnerDiameter", NXObject.AttributeType.String, -1)
                         lw.WriteLine(" Feature attr (Inner Diam): " & attributeInfo.StringValue)
                         s_innerDiam = attributeInfo.StringValue
                     End If
-                    If theFeature.HasUserAttribute("OD", NXObject.AttributeType.String, -1) Then
-                        attributeInfo = theFeature.GetUserAttribute("OD", NXObject.AttributeType.String, -1)
+                    If theFeature.HasUserAttribute("OuterDiameter", NXObject.AttributeType.String, -1) Then
+                        attributeInfo = theFeature.GetUserAttribute("OuterDiameter", NXObject.AttributeType.String, -1)
                         lw.WriteLine(" Feature attr (Outer Diam): " & attributeInfo.StringValue)
                         s_outerDiam = attributeInfo.StringValue
                     End If
@@ -220,7 +219,7 @@ Module PM_Module_RawTubes
         RawPipeComponent.SetInstanceUserAttribute("UG GEOMETRY", 0, "NO", Update.Option.Now)
         lw.WriteLine(" UG GEOMETRY=" & "NO")
 
-        Dim formatLength As String = formatReal(d_lenght)
+        Dim formatLength As String = FormatReal(d_lenght)
         RawPipeComponent.SetInstanceUserAttribute("PM5_SIZE_DIM_BOM", 0, formatLength, Update.Option.Now)
         lw.WriteLine(" Size / Dimension (PM5_SIZE_DIM_BOM)=" & formatLength)
 
@@ -249,25 +248,29 @@ Module PM_Module_RawTubes
         '    lw.WriteLine("Set User Attribute = No")
         '    b_doUpdate = False
         'End If
+        b_doUpdate = True
 
         If (b_doUpdate) Then
             lw.WriteLine("Set User Attribute for: " & workPart.Name)
 
-            workPart.SetUserAttribute("LENGTH", -1, formatLength, Update.Option.Now)
+            workPart.SetUserAttribute("LENGTH_1119", -1, formatLength, Update.Option.Now)
             lw.WriteLine(" LENGTH=" & formatLength)
 
-            workPart.SetUserAttribute("INNERDIAMETER", -1, s_innerDiam, Update.Option.Now)
+            'workPart.SetUserAttribute("INNERDIAMETER", -1, s_innerDiam, Update.Option.Now)
+            workPart.SetUserAttribute("DIAINN_1126", -1, s_innerDiam, Update.Option.Now)
             lw.WriteLine(" INNERDIAMETER=" & s_innerDiam)
 
-            workPart.SetUserAttribute("OUTERDIAMETER", -1, s_outerDiam, Update.Option.Now)
+            'workPart.SetUserAttribute("OUTERDIAMETER", -1, s_outerDiam, Update.Option.Now)
+            workPart.SetUserAttribute("DIAOUT_1125", -1, s_outerDiam, Update.Option.Now)
             lw.WriteLine(" OUTERDIAMETER=" & s_outerDiam)
 
+            '' todo: UI for shape attribute (PIPESHAPE_1124)
+            s_PipeShape = showUI_toggle_PipeShape()
+            workPart.SetUserAttribute("PIPESHAPE_1124", -1, s_PipeShape, Update.Option.Now)
+            lw.WriteLine(" Pipe-Shape=" & s_PipeShape)
+
+
         End If
-
-        '' todo: UI for shape attribute
-        ''s_PipeShape = showUI_toggle_PipeShape()
-        ''lw.WriteLine(" Pipe-Shape=" & s_PipeShape)
-
 
         lw.Close()
 
@@ -275,12 +278,12 @@ Module PM_Module_RawTubes
     ''' <summary>
     ''' Format a Double value to one digit after the decimal separator
     ''' </summary>
-    ''' <param name="value"></param>
+    ''' <param name="value">Double Value</param>
     ''' <returns>string</returns>
-    Private Function formatReal(ByVal value As Double) As String
-        formatReal = "0.0"
+    Private Function FormatReal(ByVal value As Double) As String
+        FormatReal = "0.0"
         Dim nfi As NumberFormatInfo = New CultureInfo("en-US", False).NumberFormat
-        formatReal = value.ToString("F1", nfi)
+        FormatReal = value.ToString("F1", nfi)
     End Function
     ''' <summary>
     ''' get latest revision as string
@@ -322,15 +325,17 @@ Module PM_Module_RawTubes
 
             ''Dim theDialogName As String = "Toggle_PipeShape.dlx"
             ''Dim theDialog As BlockDialog = theUISession.CreateDialog(theDialogName)
-            Dim retunValue As Integer = theUISession.NXMessageBox.Show("Pipe Shape", NXMessageBox.DialogType.Question, "Bent")
+            Dim retunValue As Integer = theUISession.NXMessageBox.Show("Pipe Shape", NXMessageBox.DialogType.Question, "Bent?")
             If (retunValue = 1) Then
-                showUI_toggle_PipeShape = "Bent"
+                showUI_toggle_PipeShape = "BENT"
+                ''showUI_toggle_PipeShape = "gebogen"
             ElseIf (retunValue = 2) Then
-                showUI_toggle_PipeShape = "Straight"
+                showUI_toggle_PipeShape = "STRAIGHT"
+                ''showUI_toggle_PipeShape = "gerade"
             End If
 
-            Dim lw As ListingWindow = theSession.ListingWindow
-            lw.WriteLine("Response: " & retunValue.ToString())
+            ''Dim lw As ListingWindow = theSession.ListingWindow
+            ''lw.WriteLine("Response: " & retunValue.ToString())
 
         Catch ex As Exception
             showUI_toggle_PipeShape = "NA"
