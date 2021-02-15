@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <RootNamespace>PM_SetRawPipe</RootNamespace>
-    <TargetFramework>netstandard2.0</TargetFramework>
+    <TargetFramework>netstandard2.1</TargetFramework>
     <OptionStrict>On</OptionStrict>
     <Company>Putzmeister Holding</Company>
     <Product>Module</Product>
@@ -32,10 +32,14 @@
     <Reference Include="NXOpenUI">
       <HintPath>..\..\..\..\..\plm\nx120\NXBIN\managed\NXOpenUI.dll</HintPath>
     </Reference>
+    <Reference Include="System.Windows.Forms">
+      <HintPath>..\..\..\..\..\Program Files\dotnet\shared\Microsoft.WindowsDesktop.App\3.1.10\System.Windows.Forms.dll</HintPath>
+    </Reference>
   </ItemGroup>
 
   <ItemGroup>
     <Import Include="NXOpen.Assemblies" />
+    <Import Include="System.Windows.Forms" />
   </ItemGroup>
 
 </Project>

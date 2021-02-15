@@ -3,12 +3,19 @@
 '  for internal usage only
 '  November 27, 2020
 '  set raw part of tube (create as component also handled)
+'  Set Part attributes
+'    1118 - DB_PM5_1118_ICS_LENGTH
+'    1125 - DB_PM5_1125_ICS_OUTERDIAMETER
+'    1126 - DB_PM5_1126_ICS_INNERDIAMETER
+'    1127 - DB_PM5_1127_ICS_PIPESHAPE
 '  Example Item 193590
 ' --------------------------------------------------------
 Option Strict Off
 Imports System
 Imports System.Globalization
 Imports System.Windows
+Imports System.Windows.Forms
+Imports System.Drawing.Color
 Imports NXOpen
 Imports NXOpenUI
 Imports NXOpen.Features
@@ -69,208 +76,230 @@ Module PM_Module_RawTubes
             Return
         End If
 
-        '' ---------------------------------------------------
-        '' Check: is there exact one Stock in this Assembly
-        '' ---------------------------------------------------
-        For Each theFeature In workPart.Features
 
-            ' Routing Mechanical
-            If theFeature.HasUserAttribute("APPLICATION", NXObject.AttributeType.String, -1) Then
-                attributeInfo = theFeature.GetUserAttribute("APPLICATION", NXObject.AttributeType.String, -1)
-                featureAppl = attributeInfo.StringValue
-                lw.WriteLine("Feature APPLICATION: " & featureAppl)
+        Dim myMarkStartName As String = "PM_RawTube_Start"
+        Dim myMarkStartId As NXOpen.Session.UndoMarkId = theSession.SetUndoMark(NXOpen.Session.MarkVisibility.Invisible, myMarkStartName)
 
-                If (String.Compare(featureAppl, "Routing Mechanical", True) = 0) Then
+        Try
 
-                    lw.WriteLine("Feature name: " & theFeature.GetFeatureName())
+            '' ---------------------------------------------------
+            '' Check: is there exact one Stock in this Assembly
+            '' ---------------------------------------------------
+            For Each theFeature In workPart.Features
 
-                    ' Piping (if this attribute is not present, we have the case Stock as component, => no update of WorkPart attributes)
-                    If theFeature.HasUserAttribute("DISCIPLINE", NXObject.AttributeType.String, -1) Then
-                        attributeInfo = theFeature.GetUserAttribute("DISCIPLINE", NXObject.AttributeType.String, -1)
-                        featureDiscp = attributeInfo.StringValue
-                        lw.WriteLine("Feature DISCIPLINE: " & featureDiscp)
-                        If (String.Compare(featureDiscp, "Piping", True) = 0) Then
-                            b_doUpdate = True
+                ' Routing Mechanical
+                If theFeature.HasUserAttribute("APPLICATION", NXObject.AttributeType.String, -1) Then
+                    attributeInfo = theFeature.GetUserAttribute("APPLICATION", NXObject.AttributeType.String, -1)
+                    featureAppl = attributeInfo.StringValue
+                    lw.WriteLine("Feature APPLICATION: " & featureAppl)
+
+                    If (String.Compare(featureAppl, "Routing Mechanical", True) = 0) Then
+
+                        lw.WriteLine("Feature name: " & theFeature.GetFeatureName())
+
+                        ' Piping (if this attribute is not present, we have the case Stock as component, => no update of WorkPart attributes)
+                        If theFeature.HasUserAttribute("DISCIPLINE", NXObject.AttributeType.String, -1) Then
+                            attributeInfo = theFeature.GetUserAttribute("DISCIPLINE", NXObject.AttributeType.String, -1)
+                            featureDiscp = attributeInfo.StringValue
+                            lw.WriteLine("Feature DISCIPLINE: " & featureDiscp)
+                            If (String.Compare(featureDiscp, "Piping", True) = 0) Then
+                                b_doUpdate = True
+                            Else
+                                b_doUpdate = False
+                            End If
+
                         Else
                             b_doUpdate = False
                         End If
 
-                    Else
-                        b_doUpdate = False
-                    End If
+                        stockFeature = theFeature
+                        nbStockFeature = nbStockFeature + 1
 
-                    stockFeature = theFeature
-                    nbStockFeature = nbStockFeature + 1
+                        If theFeature.HasUserAttribute("InnerDiameter", NXObject.AttributeType.String, -1) Then
+                            attributeInfo = theFeature.GetUserAttribute("InnerDiameter", NXObject.AttributeType.String, -1)
+                            lw.WriteLine(" Feature attr (Inner Diam): " & attributeInfo.StringValue)
+                            s_innerDiam = attributeInfo.StringValue
+                        End If
+                        If theFeature.HasUserAttribute("OuterDiameter", NXObject.AttributeType.String, -1) Then
+                            attributeInfo = theFeature.GetUserAttribute("OuterDiameter", NXObject.AttributeType.String, -1)
+                            lw.WriteLine(" Feature attr (Outer Diam): " & attributeInfo.StringValue)
+                            'lw.WriteLine(" Feature attr (Outer Diam-I): " & attributeInfo.IntegerValue.ToString())
+                            'lw.WriteLine(" Feature attr (Outer Diam-R): " & attributeInfo.RealValue.ToString())
+                            s_outerDiam = attributeInfo.StringValue
+                        End If
+                        If (String.IsNullOrEmpty(s_outerDiam)) Then
+                            If theFeature.HasUserAttribute("OD", NXObject.AttributeType.String, -1) Then
+                                attributeInfo = theFeature.GetUserAttribute("OD", NXObject.AttributeType.String, -1)
+                                lw.WriteLine(" Feature attr (OD): " & attributeInfo.StringValue)
+                                'lw.WriteLine(" Feature attr (Outer Diam-I): " & attributeInfo.IntegerValue.ToString())
+                                'lw.WriteLine(" Feature attr (Outer Diam-R): " & attributeInfo.RealValue.ToString())
+                                s_outerDiam = attributeInfo.StringValue
+                            End If
+                        End If
+                        If theFeature.HasUserAttribute("LENGTH", NXObject.AttributeType.Real, -1) Then
+                            attributeInfo = theFeature.GetUserAttribute("LENGTH", NXObject.AttributeType.Real, -1)
+                            lw.WriteLine(" Feature attr (LENGTH): " & attributeInfo.StringValue)
+                            s_length = attributeInfo.StringValue
+                            d_lenght = attributeInfo.RealValue
+                        End If
+                        'If theFeature.HasUserAttribute("PART_NUMBER", NXObject.AttributeType.String, -1) Then
+                        '   attributeInfo = theFeature.GetUserAttribute("PART_NUMBER", NXObject.AttributeType.String, -1)
+                        '   lw.WriteLine("Feature attr (PART_NUMBER): " & attributeInfo.StringValue)
+                        'End IF
+                        If theFeature.HasUserAttribute("MEMBER_NAME", NXObject.AttributeType.String, -1) Then
+                            attributeInfo = theFeature.GetUserAttribute("MEMBER_NAME", NXObject.AttributeType.String, -1)
+                            lw.WriteLine(" Feature attr (MEMBER_NAME): " & attributeInfo.StringValue)
+                            PartIdRawTube = attributeInfo.StringValue
+                            PartRevRawTube = getRev(PartIdRawTube)
+                            lw.WriteLine("  Latest rev: " & PartRevRawTube)
+                        End If
 
-                    If theFeature.HasUserAttribute("InnerDiameter", NXObject.AttributeType.String, -1) Then
-                        attributeInfo = theFeature.GetUserAttribute("InnerDiameter", NXObject.AttributeType.String, -1)
-                        lw.WriteLine(" Feature attr (Inner Diam): " & attributeInfo.StringValue)
-                        s_innerDiam = attributeInfo.StringValue
-                    End If
-                    If theFeature.HasUserAttribute("OuterDiameter", NXObject.AttributeType.String, -1) Then
-                        attributeInfo = theFeature.GetUserAttribute("OuterDiameter", NXObject.AttributeType.String, -1)
-                        lw.WriteLine(" Feature attr (Outer Diam): " & attributeInfo.StringValue)
-                        s_outerDiam = attributeInfo.StringValue
-                    End If
-                    If theFeature.HasUserAttribute("LENGTH", NXObject.AttributeType.Real, -1) Then
-                        attributeInfo = theFeature.GetUserAttribute("LENGTH", NXObject.AttributeType.Real, -1)
-                        lw.WriteLine(" Feature attr (LENGTH): " & attributeInfo.StringValue)
-                        s_length = attributeInfo.StringValue
-                        d_lenght = attributeInfo.RealValue
-                    End If
-                    'If theFeature.HasUserAttribute("PART_NUMBER", NXObject.AttributeType.String, -1) Then
-                    '   attributeInfo = theFeature.GetUserAttribute("PART_NUMBER", NXObject.AttributeType.String, -1)
-                    '   lw.WriteLine("Feature attr (PART_NUMBER): " & attributeInfo.StringValue)
-                    'End IF
-                    If theFeature.HasUserAttribute("MEMBER_NAME", NXObject.AttributeType.String, -1) Then
-                        attributeInfo = theFeature.GetUserAttribute("MEMBER_NAME", NXObject.AttributeType.String, -1)
-                        lw.WriteLine(" Feature attr (MEMBER_NAME): " & attributeInfo.StringValue)
-                        PartIdRawTube = attributeInfo.StringValue
-                        PartRevRawTube = getRev(PartIdRawTube)
-                        lw.WriteLine("  Latest rev: " & PartRevRawTube)
-                    End If
+                        '' Debug: list all UserAttributes
+                        If (b_debug) Then
+                            Dim featureAttributeInfo As NXObject.AttributeInformation
+                            lw.WriteLine("Debug - list all UserAttributes")
+                            For Each featureAttributeInfo In theFeature.GetUserAttributes()
+                                lw.WriteLine(" " & featureAttributeInfo.Title & " = " & featureAttributeInfo.StringValue)
+                            Next
+                            lw.WriteLine("Debug - End list all UserAttributes")
+                        End If
 
-                    '' Debug: list all UserAttributes
-                    If (b_debug) Then
-                        Dim featureAttributeInfo As NXObject.AttributeInformation
-                        lw.WriteLine("Debug - list all UserAttributes")
-                        For Each featureAttributeInfo In theFeature.GetUserAttributes()
-                            lw.WriteLine(" " & featureAttributeInfo.Title & " = " & featureAttributeInfo.StringValue)
-                        Next
-                        lw.WriteLine("Debug - End list all UserAttributes")
                     End If
-
                 End If
+            Next
+
+            If (stockFeature Is Nothing) Then
+                lw.WriteLine("no Stock Feature found")
+                Return
             End If
-        Next
+            If (nbStockFeature > 1) Then
+                lw.WriteLine("more then 1 Stock Feature found")
+                Return
+            End If
 
-        If (stockFeature Is Nothing) Then
-            lw.WriteLine("no Stock Feature found")
-            Return
-        End If
-        If (nbStockFeature > 1) Then
-            lw.WriteLine("more then 1 Stock Feature found")
-            Return
-        End If
+            '' ----------------------------------------------------------
+            ''  check: is there already a NON Geo Part in the children
+            '' ----------------------------------------------------------
+            Dim theComp As ComponentAssembly = workPart.ComponentAssembly
+            Dim theRootComponent As Component = theComp.RootComponent
+            Dim b_NonGeoPart As Boolean = False
+            Dim theChild As Component
+            If (theRootComponent Is Nothing) Then
+                lw.WriteLine("Not a root component: " & dispPart.Name)
+                ' do not Return here
+            Else
 
-        '' ----------------------------------------------------------
-        ''  check: is there already a NON Geo Part in the children
-        '' ----------------------------------------------------------
-        Dim theComp As ComponentAssembly = workPart.ComponentAssembly
-        Dim theRootComponent As Component = theComp.RootComponent
-        Dim b_NonGeoPart As Boolean = False
-        Dim theChild As Component
-        If (theRootComponent Is Nothing) Then
-            lw.WriteLine("Not a root component: " & dispPart.Name)
-            ' do not Return here
-        Else
-
-            ' UGII_ALLOW_NGC_IN_UGOPEN=YES needs to be set
-            For Each theChild In theRootComponent.GetChildren()
-                'check for Attribute: UG GEOMETRY
-                ' lw.WriteLine("Child: " & theChild.DisplayName)
-                If theChild.HasInstanceUserAttribute("UG GEOMETRY", NXObject.AttributeType.String, -1) Then
-                    attributeInfo = theChild.GetInstanceUserAttribute("UG GEOMETRY", NXObject.AttributeType.String, -1)
-                    'lw.WriteLine("Child attr (UG GEOMETRY): " & attributeInfo.StringValue)
-                    ' Child attr (UG GEOMETRY): NO
-                    If (String.Compare(attributeInfo.StringValue, "NO", True) = 0) Then
-                        lw.WriteLine("There is already a Part with GEO=NO: " & theChild.DisplayName)
-                        lw.WriteLine("Delete this Part to continue")
-                        theUISession.NXMessageBox.Show("Part with GEOMETRY=NO", NXMessageBox.DialogType.Error, theChild.DisplayName)
-                        Return
+                ' UGII_ALLOW_NGC_IN_UGOPEN=YES needs to be set
+                For Each theChild In theRootComponent.GetChildren()
+                    'check for Attribute: UG GEOMETRY
+                    ' lw.WriteLine("Child: " & theChild.DisplayName)
+                    If theChild.HasInstanceUserAttribute("UG GEOMETRY", NXObject.AttributeType.String, -1) Then
+                        attributeInfo = theChild.GetInstanceUserAttribute("UG GEOMETRY", NXObject.AttributeType.String, -1)
+                        'lw.WriteLine("Child attr (UG GEOMETRY): " & attributeInfo.StringValue)
+                        ' Child attr (UG GEOMETRY): NO
+                        If (String.Compare(attributeInfo.StringValue, "NO", True) = 0) Then
+                            lw.WriteLine("There is already a Part with GEO=NO: " & theChild.DisplayName)
+                            lw.WriteLine("Delete this Part to continue")
+                            theUISession.NXMessageBox.Show("Part with GEOMETRY=NO", NXMessageBox.DialogType.Error, theChild.DisplayName)
+                            Return
+                        End If
                     End If
-                End If
 
-                ' Debug: list all InstanceUserAttributes
-                If (b_debug) Then
-                    lw.WriteLine("Debug - Child: " & theChild.DisplayName)
-                    Dim childAttributeInfo As NXObject.AttributeInformation
-                    lw.WriteLine("Debug - list all Child InstanceUserAttributes")
-                    For Each childAttributeInfo In theChild.GetInstanceUserAttributes(True)
-                        lw.WriteLine(" " & childAttributeInfo.Title & " = " & childAttributeInfo.StringValue)
-                    Next
-                    lw.WriteLine("Debug - End list all Child InstanceUserAttributes")
-                End If
-
-
-            Next
-        End If
-
-        '' ------------------------------------------------        
-        ''  Add Component to Assembly: the raw pipe
-        '' ------------------------------------------------
-        Dim RawPipeComponent As NXOpen.Assemblies.Component
-        RawPipeComponent = addComponent(PartIdRawTube, PartRevRawTube)
-        If (RawPipeComponent Is Nothing) Then
-            lw.WriteLine("Can not add Component: " & PartIdRawTube & "/" & PartRevRawTube)
-            Return
-        End If
-
-        '' ---------------------------------------------------------  
-        '' Change Properties:
-        ''  Non geometry (UG Geometry = NO)
-        '' add length in Size / Dimension 
-        '' from Properties of Stock
-        '' Format 1234.1 (4 digits and 1 decimal digit)
-        '' Raw unit type BOM = MM (fix)
-        '' ---------------------------------------------------------  
-        lw.WriteLine("Set Instance User Attribute for: " & PartIdRawTube)
-
-        RawPipeComponent.SetInstanceUserAttribute("UG GEOMETRY", 0, "NO", Update.Option.Now)
-        lw.WriteLine(" UG GEOMETRY=" & "NO")
-
-        Dim formatLength As String = FormatReal(d_lenght)
-        RawPipeComponent.SetInstanceUserAttribute("PM5_SIZE_DIM_BOM", 0, formatLength, Update.Option.Now)
-        lw.WriteLine(" Size / Dimension (PM5_SIZE_DIM_BOM)=" & formatLength)
-
-        RawPipeComponent.SetInstanceUserAttribute("PM5_UOM_BOM", 0, "MM", Update.Option.Now)
-        lw.WriteLine(" Raw-Unit type BOM (PM5_UOM_BOM)=" & "MM")
-
-        ' Debug: list all InstanceUserAttributes
-        If (b_debug) Then
-            Dim CompAttributeInfo As NXObject.AttributeInformation
-            lw.WriteLine("Debug - list all InstanceUserAttributes")
-            For Each CompAttributeInfo In RawPipeComponent.GetInstanceUserAttributes(True)
-                lw.WriteLine(" " & CompAttributeInfo.Category & ":" & CompAttributeInfo.Title & " = " & CompAttributeInfo.StringValue)
-            Next
-            lw.WriteLine("Debug - End list all InstanceUserAttributes")
-        End If
-
-        '' --------------------------------------------------------- 
-        ''  set Inner/ Outer Diameter and Length of the Part itself
-        '' --------------------------------------------------------- 
-        'Dim response As Integer
-        'response = theUISession.NXMessageBox.Show(workPart.Name, NXMessageBox.DialogType.Question, "Set User Attribute?")
-        'If response = 1 Then
-        '    lw.WriteLine("Set User Attribute = Yes")
-        '    b_doUpdate = True
-        'Else
-        '    lw.WriteLine("Set User Attribute = No")
-        '    b_doUpdate = False
-        'End If
-        b_doUpdate = True
-
-        If (b_doUpdate) Then
-            lw.WriteLine("Set User Attribute for: " & workPart.Name)
-
-            workPart.SetUserAttribute("LENGTH_1119", -1, formatLength, Update.Option.Now)
-            lw.WriteLine(" LENGTH=" & formatLength)
-
-            'workPart.SetUserAttribute("INNERDIAMETER", -1, s_innerDiam, Update.Option.Now)
-            workPart.SetUserAttribute("DIAINN_1126", -1, s_innerDiam, Update.Option.Now)
-            lw.WriteLine(" INNERDIAMETER=" & s_innerDiam)
-
-            'workPart.SetUserAttribute("OUTERDIAMETER", -1, s_outerDiam, Update.Option.Now)
-            workPart.SetUserAttribute("DIAOUT_1125", -1, s_outerDiam, Update.Option.Now)
-            lw.WriteLine(" OUTERDIAMETER=" & s_outerDiam)
-
-            '' todo: UI for shape attribute (PIPESHAPE_1124)
-            s_PipeShape = showUI_toggle_PipeShape()
-            workPart.SetUserAttribute("PIPESHAPE_1124", -1, s_PipeShape, Update.Option.Now)
-            lw.WriteLine(" Pipe-Shape=" & s_PipeShape)
+                    ' Debug: list all InstanceUserAttributes
+                    If (b_debug) Then
+                        lw.WriteLine("Debug - Child: " & theChild.DisplayName)
+                        Dim childAttributeInfo As NXObject.AttributeInformation
+                        lw.WriteLine("Debug - list all Child InstanceUserAttributes")
+                        For Each childAttributeInfo In theChild.GetInstanceUserAttributes(True)
+                            lw.WriteLine(" " & childAttributeInfo.Title & " = " & childAttributeInfo.StringValue)
+                        Next
+                        lw.WriteLine("Debug - End list all Child InstanceUserAttributes")
+                    End If
 
 
-        End If
+                Next
+            End If
+
+            '' ------------------------------------------------        
+            ''  Add Component to Assembly: the raw pipe
+            '' ------------------------------------------------
+            Dim RawPipeComponent As NXOpen.Assemblies.Component
+            RawPipeComponent = addComponent(PartIdRawTube, PartRevRawTube)
+            If (RawPipeComponent Is Nothing) Then
+                lw.WriteLine("Can not add Component: " & PartIdRawTube & "/" & PartRevRawTube)
+                Return
+            End If
+
+            '' ---------------------------------------------------------  
+            '' Change Properties:
+            ''  Non geometry (UG Geometry = NO)
+            '' add length in Size / Dimension 
+            '' from Properties of Stock
+            '' Format 1234.1 (4 digits and 1 decimal digit)
+            '' Raw unit type BOM = MM (fix)
+            '' ---------------------------------------------------------  
+            lw.WriteLine("Set Instance User Attribute for: " & PartIdRawTube)
+
+            RawPipeComponent.SetInstanceUserAttribute("UG GEOMETRY", 0, "NO", Update.Option.Now)
+            lw.WriteLine(" UG GEOMETRY=" & "NO")
+
+            Dim formatLength As String = FormatReal(d_lenght)
+            RawPipeComponent.SetInstanceUserAttribute("PM5_SIZE_DIM_BOM", 0, formatLength, Update.Option.Now)
+            lw.WriteLine(" Size / Dimension (PM5_SIZE_DIM_BOM)=" & formatLength)
+
+            RawPipeComponent.SetInstanceUserAttribute("PM5_UOM_BOM", 0, "MM", Update.Option.Now)
+            lw.WriteLine(" Raw-Unit type BOM (PM5_UOM_BOM)=" & "MM")
+
+            ' Debug: list all InstanceUserAttributes
+            If (b_debug) Then
+                Dim CompAttributeInfo As NXObject.AttributeInformation
+                lw.WriteLine("Debug - list all InstanceUserAttributes")
+                For Each CompAttributeInfo In RawPipeComponent.GetInstanceUserAttributes(True)
+                    lw.WriteLine(" " & CompAttributeInfo.Category & ":" & CompAttributeInfo.Title & " = " & CompAttributeInfo.StringValue)
+                Next
+                lw.WriteLine("Debug - End list all InstanceUserAttributes")
+            End If
+
+            '' --------------------------------------------------------- 
+            ''  set Inner/ Outer Diameter and Length of the Part itself
+            '' --------------------------------------------------------- 
+            'Dim response As Integer
+            'response = theUISession.NXMessageBox.Show(workPart.Name, NXMessageBox.DialogType.Question, "Set User Attribute?")
+            'If response = 1 Then
+            '    lw.WriteLine("Set User Attribute = Yes")
+            '    b_doUpdate = True
+            'Else
+            '    lw.WriteLine("Set User Attribute = No")
+            '    b_doUpdate = False
+            'End If
+            b_doUpdate = True
+
+            If (b_doUpdate) Then
+                lw.WriteLine("Set User Attribute for: " & workPart.Name)
+
+                workPart.SetUserAttribute("DB_PM5_1118_ICS_LENGTH", -1, formatLength, Update.Option.Now)
+                lw.WriteLine(" Length=" & formatLength)
+
+                'workPart.SetUserAttribute("INNERDIAMETER", -1, s_innerDiam, Update.Option.Now)
+                s_innerDiam = FormatDiameter(s_innerDiam)
+                workPart.SetUserAttribute("DB_PM5_1126_ICS_INNERDIAMETER", -1, s_innerDiam, Update.Option.Now)
+                lw.WriteLine(" InnerDiameter=" & s_innerDiam)
+
+                'workPart.SetUserAttribute("OUTERDIAMETER", -1, s_outerDiam, Update.Option.Now)
+                s_outerDiam = FormatDiameter(s_outerDiam)
+                workPart.SetUserAttribute("DB_PM5_1125_ICS_OUTERDIAMETER", -1, s_outerDiam, Update.Option.Now)
+                lw.WriteLine(" OuterDiameter=" & s_outerDiam)
+
+                '' todo: UI for shape attribute (PIPESHAPE)
+                s_PipeShape = showUI_toggle_PipeShape()
+                workPart.SetUserAttribute("DB_PM5_1127_ICS_PIPESHAPE", -1, s_PipeShape, Update.Option.Now)
+                lw.WriteLine(" Pipe-Shape=" & s_PipeShape)
+
+            End If
+
+        Catch ex1 As Exception
+            theSession.UndoToMark(myMarkStartId, myMarkStartName)
+        End Try
 
         lw.Close()
 
@@ -282,8 +311,21 @@ Module PM_Module_RawTubes
     ''' <returns>string</returns>
     Private Function FormatReal(ByVal value As Double) As String
         FormatReal = "0.0"
+        value = Math.Round(value, 1, MidpointRounding.ToEven)
         Dim nfi As NumberFormatInfo = New CultureInfo("en-US", False).NumberFormat
+        Dim padChar As Char = "0"
         FormatReal = value.ToString("F1", nfi)
+        ''FormatReal = FormatReal.PadLeft(6, padChar) ' decision Feb 12, 2021: no leading 0
+    End Function
+    ''' <summary>
+    ''' Format the Diameter: add leading 0
+    ''' </summary>
+    ''' <param name="svalue"></param>
+    ''' <returns></returns>
+    Private Function FormatDiameter(ByVal svalue As String) As String
+        FormatDiameter = svalue
+        Dim padChar As Char = "0"
+        ''FormatDiameter = svalue.PadLeft(2, padChar) ' decision Feb 12, 2021: no leading 0
     End Function
     ''' <summary>
     ''' get latest revision as string
@@ -333,6 +375,14 @@ Module PM_Module_RawTubes
                 showUI_toggle_PipeShape = "STRAIGHT"
                 ''showUI_toggle_PipeShape = "gerade"
             End If
+
+            'Dim myForm As New System.Windows.Forms.Form() 'Create a Windows form 
+            'NXOpenUI.FormUtilities.SetApplicationIcon(myForm) 'Use an NX icon for the application icon 
+            'NXOpenUI.FormUtilities.ReparentForm(myForm) 'Set NX as the parent of our form 
+            'myForm.BackColor = System.Drawing.Color.Red 'Color our form red 
+            'myForm.Opacity = 0.5 'Make our form translucent 
+            'myForm.Text = "pipe Shape" 'Change the title of our form 
+            'myForm.ShowDialog()
 
             ''Dim lw As ListingWindow = theSession.ListingWindow
             ''lw.WriteLine("Response: " & retunValue.ToString())
