@@ -200,7 +200,7 @@ Module PM_Module_RawTubes
                         If (String.Compare(attributeInfo.StringValue, "NO", True) = 0) Then
                             lw.WriteLine("There is already a Part with GEO=NO: " & theChild.DisplayName)
                             lw.WriteLine("Delete this Part to continue")
-                            theUISession.NXMessageBox.Show("Part with GEOMETRY=NO", NXMessageBox.DialogType.Error, theChild.DisplayName)
+                            theUISession.NXMessageBox.Show("Part with GEOMETRY=NO", NXMessageBox.DialogType.Error, "Please delete: " + theChild.DisplayName)
                             Return
                         End If
                     End If
@@ -290,7 +290,7 @@ Module PM_Module_RawTubes
                 workPart.SetUserAttribute("DB_PM5_1125_ICS_OUTERDIAMETER", -1, s_outerDiam, Update.Option.Now)
                 lw.WriteLine(" OuterDiameter=" & s_outerDiam)
 
-                '' todo: UI for shape attribute (PIPESHAPE)
+                '' UI for shape attribute (PIPESHAPE)
                 s_PipeShape = showUI_toggle_PipeShape()
                 workPart.SetUserAttribute("DB_PM5_1127_ICS_PIPESHAPE", -1, s_PipeShape, Update.Option.Now)
                 lw.WriteLine(" Pipe-Shape=" & s_PipeShape)
@@ -356,7 +356,7 @@ Module PM_Module_RawTubes
 
     End Function
     ''' <summary>
-    ''' UI to get the Pipe/Tube-Shape
+    ''' UI to get the Pipe/Tube-Shape (todo: improve)
     ''' </summary>
     ''' <returns>String: Bent or Straight</returns>
     Private Function showUI_toggle_PipeShape() As String
